@@ -1,0 +1,59 @@
+# ============================================================================
+# BACKEND - Spring Boot / Maven / IntelliJ
+# ============================================================================
+
+# Maven build output
+backend/target/
+backend/.mvn/
+
+# IntelliJ IDEA
+backend/.idea/
+*.iml
+*.iws
+*.ipr
+
+# Logs
+backend/*.log
+backend/logs/
+
+# Database secrets (NEVER commit passwords!)
+backend/src/main/resources/application-secrets.properties
+
+# ============================================================================
+# FRONTEND - React / Vite / Node
+# ============================================================================
+
+# Dependencies (can be reinstalled with npm install)
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Environment variables
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ============================================================================
+# GENERAL
+# ============================================================================
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
