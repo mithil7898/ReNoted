@@ -1,7 +1,7 @@
-import Home from './pages/Home';
+import NotesPage from './pages/NotesPage';
 
 function App() {
-  return <Home />;
+  return <NotesPage />;
 }
 
 export default App;
