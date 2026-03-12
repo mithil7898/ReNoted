@@ -1,13 +1,13 @@
 package com.renoted.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Note Entity
@@ -54,6 +54,8 @@ import java.time.LocalDateTime;
 //     Note(Long id, String title, String content, ...) { ... }
 //     Useful for creating test objects
 
+@EqualsAndHashCode(exclude = "tags")  // ← Must have this line!
+@ToString(exclude = "tags")            // ← Must have this line!
 public class Note {
 
     /**
@@ -140,4 +142,50 @@ public class Note {
     // Example usage:
     // - Note created: createdAt = 15:30, updatedAt = 15:30
     // - Note updated: createdAt = 15:30, updatedAt = 16:45 (changed!)
+
+    /**
+     * Many-to-Many Relationship with Tag
+     *
+     * @ManyToMany: One note can have many tags
+     *
+     * @JoinTable: Specifies the join table configuration
+     * - name = "note_tags": Name of the join table Hibernate will create
+     * - joinColumns: Foreign key to THIS entity (Note)
+     * - inverseJoinColumns: Foreign key to OTHER entity (Tag)
+     *
+     * Join Table Structure:
+     * note_tags (
+     *   note_id BIGINT REFERENCES notes(id),
+     *   tag_id BIGINT REFERENCES tags(id),
+     *   PRIMARY KEY (note_id, tag_id)
+     * )
+     *
+     * Why @JoinTable here (in Note) and not in Tag?
+     * - One side must "own" the relationship
+     * - We chose Note to be the owner
+     * - Owner side controls the join table
+     * - Tag side uses mappedBy to refer to this
+     *
+     * cascade = CascadeType.PERSIST:
+     * - When saving a note with new tags, tags are saved automatically
+     * - Example: note.getTags().add(newTag); noteRepository.save(note);
+     *   → Both note AND newTag are saved
+     *
+     * We DON'T use CascadeType.REMOVE because:
+     * - Deleting a note shouldn't delete its tags
+     * - Tags can be shared across multiple notes
+     * - Only delete the association, not the tag itself
+     *
+     * Why Set instead of List?
+     * - No duplicate tags on same note
+     * - More efficient for contains() checks
+     * - Hibernate recommendation for Many-to-Many
+     */
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "note_tags",  // Name of join table
+            joinColumns = @JoinColumn(name = "note_id"),  // Foreign key to Note
+            inverseJoinColumns = @JoinColumn(name = "tag_id")  // Foreign key to Tag
+    )
+    private Set<Tag> tags = new HashSet<>();
 }

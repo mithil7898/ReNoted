@@ -47,7 +47,7 @@ import java.util.List;
  *   Returns: [{ "id": 1, ... }, { "id": 2, ... }]
  *
  * Get Single Note:
- *   GET /api/notes/1
+ *   GET /api/notes/1\
  *   Returns: { "id": 1, "title": "My Note", ... }
  *
  * Update Note:
@@ -306,12 +306,78 @@ public class NoteController {
     }
 
     /**
+     * SEARCH - Search notes by keyword
+     *
+     * GET /api/notes/search?query=java
+     *
+     * Query Parameter:
+     * - query: Search keyword (searches title and content)
+     *
+     * Examples:
+     * - /api/notes/search?query=spring
+     * - /api/notes/search?query=tutorial
+     * - /api/notes/search (no query = all notes)
+     *
+     * Response: 200 OK
+     * [
+     *   { "id": 1, "title": "Spring Tutorial", ... },
+     *   { "id": 5, "title": "Getting Started", "content": "spring boot...", ... }
+     * ]
+     *
+     * @param query - Search keyword
+     * @return List of matching notes
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<NoteDTO>> searchNotes(
+            @RequestParam(required = false) String query
+    ) {
+        // @RequestParam gets query parameter from URL
+        // required = false: query parameter is optional
+        // /api/notes/search?query=java → query = "java"
+        // /api/notes/search → query = null
+
+        List<NoteDTO> notes = noteService.searchNotes(query);
+        return ResponseEntity.ok(notes);
+    }
+
+    /**
+     * FILTER - Get notes by tag
+     *
+     * GET /api/notes/filter/tag/{tagId}
+     *
+     * Example: GET /api/notes/filter/tag/1
+     *
+     * Path Variable:
+     * - tagId: Tag ID to filter by
+     *
+     * Response: 200 OK
+     * [
+     *   { "id": 1, "title": "Note 1", "tagIds": [1, 2], ... },
+     *   { "id": 3, "title": "Note 3", "tagIds": [1], ... }
+     * ]
+     *
+     * Use case:
+     * - User clicks "Java" tag
+     * - Shows all notes with "Java" tag
+     *
+     * @param tagId - Tag ID
+     * @return List of notes with this tag
+     */
+    @GetMapping("/filter/tag/{tagId}")
+    public ResponseEntity<List<NoteDTO>> filterNotesByTag(
+            @PathVariable Long tagId
+    ) {
+        List<NoteDTO> notes = noteService.filterByTag(tagId);
+        return ResponseEntity.ok(notes);
+    }
+
+    /**
      * BONUS: Search notes by title (example custom endpoint)
      *
      * URL: GET /api/notes/search?title=keyword
      * Example: GET /api/notes/search?title=meeting
      * Response: 200 OK + [{ "id": 1, "title": "Meeting notes", ... }]
-     *
+     *sssss
      * This is commented out for now (we'll add search later)
      */
     /*

@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * NoteDTO - Data Transfer Object
@@ -70,7 +71,7 @@ import java.time.LocalDateTime;
 //     Required for JSON deserialization
 //     Jackson (JSON library) needs this to create objects
 
-@AllArgsConstructor  // <-- Lombok: Generates constructor with all fields
+//@AllArgsConstructor  // <-- Lombok: Generates constructor with all fields
 //     Useful for creating DTOs in code
 //     Example: new NoteDTO(1L, "Title", "Content", ...)
 
@@ -200,4 +201,45 @@ public class NoteDTO {
      *   ✅ phone = "1234567890"
      *   ❌ phone = "123" (too short)
      */
+
+    /**
+     * Tags associated with this note
+     *
+     * - List of tag IDs for API requests (create/update)
+     * - Frontend sends: [1, 2, 3] (tag IDs)
+     * - Backend converts to Tag entities
+     *
+     * Why List<Long> instead of List<TagDTO>?
+     * - Simpler for frontend: just send tag IDs
+     * - Frontend: { "title": "Note", "tagIds": [1, 2, 3] }
+     * - Backend converts IDs to Tag entities internally
+     *
+     * Alternative approach (more verbose):
+     * - Use List<TagDTO> with full tag objects
+     * - Frontend: { "title": "Note", "tags": [{"id":1,"name":"Java"}] }
+     * - More data to send, but more explicit
+     *
+     * We chose List<Long> for simplicity
+     */
+    private List<Long> tagIds;
+    // When creating note: [1, 2] → Backend finds tags with these IDs
+    // When returning note: [1, 2] → Frontend can display tag names
+
+
+    public NoteDTO(Long id, String title, String content, LocalDateTime createdAt, LocalDateTime updatedAt) {
+        this.id = id;
+        this.title = title;
+        this.content = content;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
+
+    public NoteDTO(Long id, String title, String content, LocalDateTime createdAt, LocalDateTime updatedAt, List<Long> tagIds) {
+        this.id = id;
+        this.title = title;
+        this.content = content;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.tagIds = tagIds;
+    }
 }

@@ -2,6 +2,8 @@ package com.renoted.repo;
 
 import com.renoted.entity.Note;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -77,6 +79,66 @@ public interface NoteRepo extends JpaRepository<Note, Long> {
      * We can ADD custom query methods if needed.
      * Spring Data JPA generates queries from method names!
      */
+
+    /**
+     * Search notes by title or content (case-insensitive)
+     *
+     * Why we need this:
+     * - Users want to find notes quickly
+     * - Search in both title and content
+     * - Case-insensitive for better UX
+     *
+     * Method naming:
+     * - findBy = SELECT query
+     * - TitleContaining = title LIKE %?%
+     * - Or = OR condition
+     * - ContentContaining = content LIKE %?%
+     * - IgnoreCase = LOWER() comparison
+     *
+     * Spring Data JPA generates:
+     * SELECT * FROM notes
+     * WHERE LOWER(title) LIKE LOWER('%?%')
+     *    OR LOWER(content) LIKE LOWER('%?%')
+     *
+     * Example:
+     * User searches "spring"
+     * Finds: "Spring Boot Tutorial", "Getting Started with spring"
+     *
+     * @param titleQuery - Search term for title
+     * @param contentQuery - Search term for content (same as titleQuery)
+     * @return List of notes matching search
+     */
+    List<Note> findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(
+            String titleQuery,
+            String contentQuery
+    );
+
+    /**
+     * Find notes by tag ID
+     *
+     * Why we need this:
+     * - Filter notes by specific tag
+     * - Example: Show all "Java" notes
+     *
+     * JPQL Query:
+     * - SELECT n FROM Note n: Get notes
+     * - JOIN n.tags t: Join with tags (Many-to-Many)
+     * - WHERE t.id = :tagId: Filter by tag ID
+     *
+     * Spring generates SQL:
+     * SELECT n.* FROM notes n
+     * INNER JOIN note_tags nt ON n.id = nt.note_id
+     * WHERE nt.tag_id = ?
+     *
+     * Example:
+     * tagId = 1 (Java)
+     * Returns all notes tagged with "Java"
+     *
+     * @param tagId - Tag ID to filter by
+     * @return List of notes with this tag
+     */
+    @Query("SELECT n FROM Note n JOIN n.tags t WHERE t.id = :tagId")
+    List<Note> findByTagId(@Param("tagId") Long tagId);
 
     // CUSTOM QUERY METHODS (Optional - examples for future use)
     // Uncomment these when you need them:
