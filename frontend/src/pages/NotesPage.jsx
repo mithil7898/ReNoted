@@ -15,6 +15,7 @@ import React, { useState, useEffect } from 'react';
 import NoteCard from '../components/NoteCard';
 import NoteForm from '../components/NoteForm';
 import DeleteModal from '../components/DeleteModal';
+import NoteViewModal from '../components/NoteViewModal';
 import SearchBar from '../components/SearchBar';
 import TagManager from '../components/TagManager';  // ← ADD THIS
 import TagFilter from '../components/TagFilter';
@@ -41,6 +42,8 @@ const NotesPage = () => {
   const [displayedNotes, setDisplayedNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [viewNote, setViewNote] = useState(null);  // ← ADD THIS
+  const [isModalOpen, setIsModalOpen] = useState(false);  // ← ADD THIS
 
   // Tags state
   const [tags, setTags] = useState([]);
@@ -321,6 +324,41 @@ const NotesPage = () => {
     }
   };
 
+  /**
+   * EDIT NOTE - Open form with existing note data
+   */
+  const handleEditNote = (note) => {
+    setEditingNote(note);
+    setShowForm(true);
+  };
+
+  /**
+   * VIEW NOTE - Open modal
+   */
+  const handleViewNote = (note) => {
+    setViewNote(note);
+    setIsModalOpen(true);
+  };
+
+  /**
+   * CLOSE MODAL
+   */
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setViewNote(null), 300);
+  };
+
+  /**
+   * DELETE NOTE - Show delete confirmation
+   */
+  const handleDeleteClick = (note) => {
+    setDeletingNote(note);
+  };
+
+  // ============================================================================
+  // RENDER
+  // ============================================================================
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -440,13 +478,14 @@ const NotesPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayedNotes.map((note) => (
               <NoteCard
-                key={note.id}
-                note={note}
-                availableTags={tags}
-                onEdit={handleEdit}
-                onDelete={setDeletingNote}
-                onRemoveTag={handleRemoveTagFromNote}
-              />
+              key={note.id}
+              note={note}
+              availableTags={tags}
+              onEdit={handleEditNote}
+              onDelete={handleDeleteClick}
+              onRemoveTag={handleRemoveTagFromNote}
+              onViewNote={handleViewNote}  // ← ADD THIS
+            />
             ))}
           </div>
         )}
@@ -459,6 +498,12 @@ const NotesPage = () => {
             onCancel={() => setDeletingNote(null)}
           />
         )}
+        {/* Note View Modal */}
+        <NoteViewModal
+          note={viewNote}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+        />
       </div>
     </div>
   );

@@ -14,6 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import TagSelector from './TagSelector';
+import TipTapEditor from './TipTapEditor';
 
 const NoteForm = ({ note, onSubmit, onCancel, availableTags, onCreateTag }) => {
   // Form state
@@ -153,21 +154,15 @@ const NoteForm = ({ note, onSubmit, onCancel, availableTags, onCreateTag }) => {
           </div>
         </div>
 
-        {/* Content Textarea */}
+        {/* Content - TipTap Rich Text Editor */}
         <div className="mb-4">
-          <label
-            htmlFor="content"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Content
           </label>
-          <textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Enter note content (optional)"
-            rows={6}
+          <TipTapEditor
+            content={content}
+            onChange={setContent}
+            placeholder="Start typing... Use the toolbar to format your text"
           />
         </div>
 

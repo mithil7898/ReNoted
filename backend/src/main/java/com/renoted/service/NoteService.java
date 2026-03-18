@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.renoted.util.HtmlSanitizer;
+
 /**
  * NoteService - Business Logic Layer
  *
@@ -263,7 +265,14 @@ public class NoteService {
 
         // Update basic fields
         existingNote.setTitle(noteDTO.getTitle());
-        existingNote.setContent(noteDTO.getContent());
+
+        // ⚠️ SECURITY: Sanitize HTML to prevent XSS
+        String sanitizedContent = HtmlSanitizer.sanitize(noteDTO.getContent());
+        existingNote.setContent(sanitizedContent);
+
+        if (HtmlSanitizer.containsDangerousContent(noteDTO.getContent())) {
+            System.out.println("🚨 XSS ATTACK BLOCKED on note update: " + noteDTO.getTitle());
+        }
 
         // Update tags
         if (noteDTO.getTagIds() != null) {
@@ -417,11 +426,14 @@ public class NoteService {
             note.setId(noteDTO.getId());  // For updates
         }
         note.setTitle(noteDTO.getTitle());
-        note.setContent(noteDTO.getContent());
 
-        // createdAt and updatedAt will be set automatically by:
-        // - @CreationTimestamp (on first save)
-        // - @UpdateTimestamp (on every save)
+        // ⚠️ SECURITY: Sanitize HTML to prevent XSS
+        String sanitizedContent = HtmlSanitizer.sanitize(noteDTO.getContent());
+        note.setContent(sanitizedContent);
+
+        if (HtmlSanitizer.containsDangerousContent(noteDTO.getContent())) {
+            System.out.println("🚨 XSS ATTACK BLOCKED on note: " + noteDTO.getTitle());
+        }
 
         return note;
     }
