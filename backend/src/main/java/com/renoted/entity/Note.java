@@ -108,6 +108,11 @@ public class Note {
 
     private String content;
 
+    // ⭐ NEW: User relationship
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
     /**
      * Creation Timestamp
      *
@@ -142,6 +147,7 @@ public class Note {
     // Example usage:
     // - Note created: createdAt = 15:30, updatedAt = 15:30
     // - Note updated: createdAt = 15:30, updatedAt = 16:45 (changed!)
+
 
     /**
      * Many-to-Many Relationship with Tag
