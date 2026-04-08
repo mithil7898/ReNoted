@@ -4,6 +4,7 @@ import com.renoted.dto.AuthResponse;
 import com.renoted.dto.LoginRequest;
 import com.renoted.dto.RegisterRequest;
 import com.renoted.dto.UserDTO;
+import com.renoted.entity.User;
 import com.renoted.service.UserService;
 import com.renoted.util.JwtUtil;
 import jakarta.validation.Valid;
@@ -16,6 +17,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.*;
+import com.renoted.dto.TokenRefreshRequest;
+import com.renoted.dto.TokenRefreshResponse;
+import com.renoted.entity.RefreshToken;
+import com.renoted.service.RefreshTokenService;
 
 /**
  * AUTHENTICATION CONTROLLER - Login and Registration Endpoints
@@ -81,369 +86,531 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final RefreshTokenService refreshTokenService;
 
-    /**
-     * REGISTER NEW USER
-     *
-     * Endpoint: POST /api/auth/register
-     *
-     * Purpose:
-     * Create a new user account and return JWT token.
-     *
-     * REQUEST:
-     * {
-     *   "username": "john_doe",
-     *   "email": "john@example.com",
-     *   "password": "password123",
-     *   "fullName": "John Doe"
-     * }
-     *
-     * RESPONSE (Success - 200 OK):
-     * {
-     *   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-     *   "user": {
-     *     "id": 1,
-     *     "username": "john_doe",
-     *     "email": "john@example.com",
-     *     "fullName": "John Doe",
-     *     "role": "ROLE_USER",
-     *     "enabled": true,
-     *     "createdAt": "2026-03-25T10:30:00",
-     *     "updatedAt": "2026-03-25T10:30:00"
-     *   }
-     * }
-     *
-     * RESPONSE (Error - 400 Bad Request):
-     * - Username already exists
-     * - Email already exists
-     * - Validation failed
-     *
-     * FLOW:
-     * 1. Frontend sends registration data
-     * 2. Spring validates (@Valid annotation)
-     * 3. UserService creates user
-     * 4. Password is hashed (BCrypt)
-     * 5. User saved to database
-     * 6. Generate JWT token for user
-     * 7. Return token + user info
-     * 8. User is automatically logged in!
-     *
-     * @PostMapping:
-     * - Maps POST requests to this method
-     * - Path: /api/auth/register
-     *
-     * @RequestBody:
-     * - Reads JSON from request body
-     * - Deserializes to RegisterRequest object
-     *
-     * @Valid:
-     * - Triggers validation annotations
-     * - @NotBlank, @Email, @Size, etc.
-     * - If validation fails → 400 Bad Request
-     * - Error details in response body
-     *
-     * ResponseEntity<AuthResponse>:
-     * - Wrapper for HTTP response
-     * - Contains status code + body
-     * - ResponseEntity.ok() → 200 OK
-     *
-     * @param request - Registration data (validated)
-     * @return ResponseEntity with JWT token and user info
-     */
+//    /**
+//     * REGISTER NEW USER (OLD)
+//     *
+//     * Endpoint: POST /api/auth/register
+//     *
+//     * Purpose:
+//     * Create a new user account and return JWT token.
+//     *
+//     * REQUEST:
+//     * {
+//     *   "username": "john_doe",
+//     *   "email": "john@example.com",
+//     *   "password": "password123",
+//     *   "fullName": "John Doe"
+//     * }
+//     *
+//     * RESPONSE (Success - 200 OK):
+//     * {
+//     *   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+//     *   "user": {
+//     *     "id": 1,
+//     *     "username": "john_doe",
+//     *     "email": "john@example.com",
+//     *     "fullName": "John Doe",
+//     *     "role": "ROLE_USER",
+//     *     "enabled": true,
+//     *     "createdAt": "2026-03-25T10:30:00",
+//     *     "updatedAt": "2026-03-25T10:30:00"
+//     *   }
+//     * }
+//     *
+//     * RESPONSE (Error - 400 Bad Request):
+//     * - Username already exists
+//     * - Email already exists
+//     * - Validation failed
+//     *
+//     * FLOW:
+//     * 1. Frontend sends registration data
+//     * 2. Spring validates (@Valid annotation)
+//     * 3. UserService creates user
+//     * 4. Password is hashed (BCrypt)
+//     * 5. User saved to database
+//     * 6. Generate JWT token for user
+//     * 7. Return token + user info
+//     * 8. User is automatically logged in!
+//     *
+//     * @PostMapping:
+//     * - Maps POST requests to this method
+//     * - Path: /api/auth/register
+//     *
+//     * @RequestBody:
+//     * - Reads JSON from request body
+//     * - Deserializes to RegisterRequest object
+//     *
+//     * @Valid:
+//     * - Triggers validation annotations
+//     * - @NotBlank, @Email, @Size, etc.
+//     * - If validation fails → 400 Bad Request
+//     * - Error details in response body
+//     *
+//     * ResponseEntity<AuthResponse>:
+//     * - Wrapper for HTTP response
+//     * - Contains status code + body
+//     * - ResponseEntity.ok() → 200 OK
+//     *
+//     * @param request - Registration data (validated)
+//     * @return ResponseEntity with JWT token and user info
+//     */
+//    @PostMapping("/register")
+//    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 1: CREATE USER ACCOUNT
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * UserService handles:
+//         * 1. Check username availability
+//         * 2. Check email availability
+//         * 3. Hash password with BCrypt
+//         * 4. Create User entity
+//         * 5. Save to database
+//         * 6. Convert to UserDTO
+//         *
+//         * What happens inside:
+//         * - userRepository.existsByUsername() → Check uniqueness
+//         * - userRepository.existsByEmail() → Check uniqueness
+//         * - passwordEncoder.encode() → Hash password
+//         * - userRepository.save() → Persist to database
+//         * - convertToDTO() → Safe public representation
+//         *
+//         * Possible exceptions:
+//         * - RuntimeException("Username already exists")
+//         * - RuntimeException("Email already exists")
+//         *
+//         * These exceptions:
+//         * - Caught by Spring's exception handler
+//         * - Returned as 400 Bad Request (or 500 if uncaught)
+//         * - Message included in response
+//         *
+//         * Improvement:
+//         * Create custom exceptions:
+//         * - UsernameAlreadyExistsException
+//         * - EmailAlreadyExistsException
+//         * - Handle with @ExceptionHandler
+//         * - Return specific error responses
+//         */
+//        UserDTO user = userService.registerUser(request);
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 2: LOAD USER DETAILS FOR TOKEN GENERATION
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Why load user again?
+//         * - We need UserDetails (Spring Security format)
+//         * - UserDTO doesn't have password or authorities
+//         * - JwtUtil needs UserDetails to generate token
+//         *
+//         * userDetailsService.loadUserByUsername():
+//         * - Calls CustomUserDetailsService
+//         * - Queries database for user
+//         * - Converts to UserDetails
+//         * - Returns Spring Security representation
+//         *
+//         * UserDetails contains:
+//         * - username
+//         * - password (hashed)
+//         * - authorities (roles)
+//         * - account status flags
+//         *
+//         * Alternative approach:
+//         * Make registerUser() return UserDetails instead
+//         * But that mixes concerns (service returns security type)
+//         * Better to keep separation
+//         */
+//        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 3: GENERATE JWT TOKEN
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Create JWT token for newly registered user.
+//         *
+//         * jwtUtil.generateToken(userDetails):
+//         * - Extracts username from UserDetails
+//         * - Creates JWT with:
+//         *   - Header: Algorithm (HS256)
+//         *   - Payload: Username, issued time, expiration
+//         *   - Signature: Signed with secret key
+//         * - Returns compact JWT string
+//         *
+//         * Token example:
+//         * "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huX2RvZSIsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxNTE2MjQyNjIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+//         *
+//         * Token validity:
+//         * - Configured in JwtUtil (default 10 hours)
+//         * - After expiration, user must login again
+//         * - Token contains expiration timestamp
+//         *
+//         * Security:
+//         * - Signed with secret key (tamper-proof)
+//         * - Contains only username (no sensitive data)
+//         * - Stateless (no server-side storage)
+//         */
+//        String token = jwtUtil.generateToken(userDetails);
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 4: CREATE AND RETURN AUTH RESPONSE
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Package token and user info into response.
+//         *
+//         * AuthResponse contains:
+//         * - token: JWT for authentication
+//         * - user: Public user information
+//         *
+//         * Frontend receives:
+//         * {
+//         *   "token": "eyJhbGc...",
+//         *   "user": {
+//         *     "id": 1,
+//         *     "username": "john_doe",
+//         *     "email": "john@example.com",
+//         *     ...
+//         *   }
+//         * }
+//         *
+//         * Frontend will:
+//         * 1. Store token in localStorage
+//         * 2. Store user info in state/localStorage
+//         * 3. Redirect to dashboard
+//         * 4. User is logged in!
+//         *
+//         * ResponseEntity.ok():
+//         * - Creates response with 200 OK status
+//         * - Sets body to AuthResponse
+//         * - Spring serializes to JSON automatically
+//         *
+//         * HTTP Response:
+//         * Status: 200 OK
+//         * Content-Type: application/json
+//         * Body: { "token": "...", "user": {...} }
+//         */
+//        return ResponseEntity.ok(new AuthResponse(token, user));
+//
+//        /*
+//         * ✅ REGISTRATION COMPLETE!
+//         *
+//         * What happened:
+//         * 1. ✅ Validated registration data
+//         * 2. ✅ Created user account
+//         * 3. ✅ Hashed password securely
+//         * 4. ✅ Saved to database
+//         * 5. ✅ Generated JWT token
+//         * 6. ✅ Returned token + user info
+//         *
+//         * User can now:
+//         * - Store token
+//         * - Make authenticated requests
+//         * - Access protected endpoints
+//         * - No need to login again!
+//         */
+//    }
+
+    // REGISTER NEW USER (NEW) - WITH REFRESH TOKEN, {ask for verbose later}
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 1: CREATE USER ACCOUNT
-         * ═══════════════════════════════════════════════════════════
-         *
-         * UserService handles:
-         * 1. Check username availability
-         * 2. Check email availability
-         * 3. Hash password with BCrypt
-         * 4. Create User entity
-         * 5. Save to database
-         * 6. Convert to UserDTO
-         *
-         * What happens inside:
-         * - userRepository.existsByUsername() → Check uniqueness
-         * - userRepository.existsByEmail() → Check uniqueness
-         * - passwordEncoder.encode() → Hash password
-         * - userRepository.save() → Persist to database
-         * - convertToDTO() → Safe public representation
-         *
-         * Possible exceptions:
-         * - RuntimeException("Username already exists")
-         * - RuntimeException("Email already exists")
-         *
-         * These exceptions:
-         * - Caught by Spring's exception handler
-         * - Returned as 400 Bad Request (or 500 if uncaught)
-         * - Message included in response
-         *
-         * Improvement:
-         * Create custom exceptions:
-         * - UsernameAlreadyExistsException
-         * - EmailAlreadyExistsException
-         * - Handle with @ExceptionHandler
-         * - Return specific error responses
-         */
         UserDTO user = userService.registerUser(request);
-
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 2: LOAD USER DETAILS FOR TOKEN GENERATION
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Why load user again?
-         * - We need UserDetails (Spring Security format)
-         * - UserDTO doesn't have password or authorities
-         * - JwtUtil needs UserDetails to generate token
-         *
-         * userDetailsService.loadUserByUsername():
-         * - Calls CustomUserDetailsService
-         * - Queries database for user
-         * - Converts to UserDetails
-         * - Returns Spring Security representation
-         *
-         * UserDetails contains:
-         * - username
-         * - password (hashed)
-         * - authorities (roles)
-         * - account status flags
-         *
-         * Alternative approach:
-         * Make registerUser() return UserDetails instead
-         * But that mixes concerns (service returns security type)
-         * Better to keep separation
-         */
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
 
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 3: GENERATE JWT TOKEN
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Create JWT token for newly registered user.
-         *
-         * jwtUtil.generateToken(userDetails):
-         * - Extracts username from UserDetails
-         * - Creates JWT with:
-         *   - Header: Algorithm (HS256)
-         *   - Payload: Username, issued time, expiration
-         *   - Signature: Signed with secret key
-         * - Returns compact JWT string
-         *
-         * Token example:
-         * "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJqb2huX2RvZSIsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxNTE2MjQyNjIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
-         *
-         * Token validity:
-         * - Configured in JwtUtil (default 10 hours)
-         * - After expiration, user must login again
-         * - Token contains expiration timestamp
-         *
-         * Security:
-         * - Signed with secret key (tamper-proof)
-         * - Contains only username (no sensitive data)
-         * - Stateless (no server-side storage)
-         */
-        String token = jwtUtil.generateToken(userDetails);
+        // Generate access token
+        String accessToken = jwtUtil.generateToken(userDetails);
 
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 4: CREATE AND RETURN AUTH RESPONSE
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Package token and user info into response.
-         *
-         * AuthResponse contains:
-         * - token: JWT for authentication
-         * - user: Public user information
-         *
-         * Frontend receives:
-         * {
-         *   "token": "eyJhbGc...",
-         *   "user": {
-         *     "id": 1,
-         *     "username": "john_doe",
-         *     "email": "john@example.com",
-         *     ...
-         *   }
-         * }
-         *
-         * Frontend will:
-         * 1. Store token in localStorage
-         * 2. Store user info in state/localStorage
-         * 3. Redirect to dashboard
-         * 4. User is logged in!
-         *
-         * ResponseEntity.ok():
-         * - Creates response with 200 OK status
-         * - Sets body to AuthResponse
-         * - Spring serializes to JSON automatically
-         *
-         * HTTP Response:
-         * Status: 200 OK
-         * Content-Type: application/json
-         * Body: { "token": "...", "user": {...} }
-         */
-        return ResponseEntity.ok(new AuthResponse(token, user));
+        // Generate refresh token
+        User userEntity = userService.getUserEntityByUsername(user.getUsername());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userEntity);
 
-        /*
-         * ✅ REGISTRATION COMPLETE!
-         *
-         * What happened:
-         * 1. ✅ Validated registration data
-         * 2. ✅ Created user account
-         * 3. ✅ Hashed password securely
-         * 4. ✅ Saved to database
-         * 5. ✅ Generated JWT token
-         * 6. ✅ Returned token + user info
-         *
-         * User can now:
-         * - Store token
-         * - Make authenticated requests
-         * - Access protected endpoints
-         * - No need to login again!
-         */
+        return ResponseEntity.ok(new AuthResponse(
+                accessToken,
+                refreshToken.getToken(),
+                user
+        ));
     }
 
-    /**
-     * LOGIN USER
-     *
-     * Endpoint: POST /api/auth/login
-     *
-     * Purpose:
-     * Authenticate user and return JWT token.
-     *
-     * REQUEST:
-     * {
-     *   "username": "john_doe",
-     *   "password": "password123"
-     * }
-     *
-     * RESPONSE (Success - 200 OK):
-     * {
-     *   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-     *   "user": {
-     *     "id": 1,
-     *     "username": "john_doe",
-     *     "email": "john@example.com",
-     *     "fullName": "John Doe",
-     *     "role": "ROLE_USER",
-     *     "enabled": true,
-     *     "createdAt": "2026-03-25T10:30:00",
-     *     "updatedAt": "2026-03-25T10:30:00"
-     *   }
-     * }
-     *
-     * RESPONSE (Error - 401 Unauthorized):
-     * - Invalid username
-     * - Invalid password
-     * - Account disabled
-     *
-     * FLOW:
-     * 1. Frontend sends credentials
-     * 2. Spring validates format
-     * 3. AuthenticationManager authenticates
-     * 4. If valid → Generate JWT
-     * 5. If invalid → 401 Unauthorized
-     * 6. Return token + user info
-     *
-     * AUTHENTICATION PROCESS:
-     * 1. Create authentication token (unauthenticated)
-     * 2. AuthenticationManager.authenticate()
-     *    - Calls UserDetailsService
-     *    - Loads user from database
-     *    - Compares password hashes (BCrypt)
-     *    - Returns authenticated token if valid
-     *    - Throws BadCredentialsException if invalid
-     * 3. Generate JWT
-     * 4. Return to user
-     *
-     * @param request - Login credentials (validated)
-     * @return ResponseEntity with JWT token and user info
-     */
+//    /**
+//     * LOGIN USER (OLD)
+//     *
+//     * Endpoint: POST /api/auth/login
+//     *
+//     * Purpose:
+//     * Authenticate user and return JWT token.
+//     *
+//     * REQUEST:
+//     * {
+//     *   "username": "john_doe",
+//     *   "password": "password123"
+//     * }
+//     *
+//     * RESPONSE (Success - 200 OK):
+//     * {
+//     *   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+//     *   "user": {
+//     *     "id": 1,
+//     *     "username": "john_doe",
+//     *     "email": "john@example.com",
+//     *     "fullName": "John Doe",
+//     *     "role": "ROLE_USER",
+//     *     "enabled": true,
+//     *     "createdAt": "2026-03-25T10:30:00",
+//     *     "updatedAt": "2026-03-25T10:30:00"
+//     *   }
+//     * }
+//     *
+//     * RESPONSE (Error - 401 Unauthorized):
+//     * - Invalid username
+//     * - Invalid password
+//     * - Account disabled
+//     *
+//     * FLOW:
+//     * 1. Frontend sends credentials
+//     * 2. Spring validates format
+//     * 3. AuthenticationManager authenticates
+//     * 4. If valid → Generate JWT
+//     * 5. If invalid → 401 Unauthorized
+//     * 6. Return token + user info
+//     *
+//     * AUTHENTICATION PROCESS:
+//     * 1. Create authentication token (unauthenticated)
+//     * 2. AuthenticationManager.authenticate()
+//     *    - Calls UserDetailsService
+//     *    - Loads user from database
+//     *    - Compares password hashes (BCrypt)
+//     *    - Returns authenticated token if valid
+//     *    - Throws BadCredentialsException if invalid
+//     * 3. Generate JWT
+//     * 4. Return to user
+//     *
+//     * @param request - Login credentials (validated)
+//     * @return ResponseEntity with JWT token and user info
+//     */
+//    @PostMapping("/login")
+//    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 1: AUTHENTICATE USER
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Verify username and password are correct.
+//         *
+//         * UsernamePasswordAuthenticationToken:
+//         * - Represents authentication request
+//         * - Contains username and password
+//         * - Initially UNAUTHENTICATED
+//         *
+//         * Constructor parameters:
+//         * 1. principal (username): User identifier
+//         * 2. credentials (password): Plain text password
+//         *
+//         * authenticationManager.authenticate():
+//         * - Core Spring Security authentication
+//         * - Does the following:
+//         *   a. Calls UserDetailsService.loadUserByUsername()
+//         *   b. Gets UserDetails from database
+//         *   c. Uses PasswordEncoder to compare passwords
+//         *   d. BCrypt.matches(input, stored_hash)
+//         *   e. If match → Returns authenticated token
+//         *   f. If no match → Throws BadCredentialsException
+//         *
+//         * What happens inside:
+//         *
+//         * 1. Load user:
+//         *    UserDetails user = userDetailsService.loadUserByUsername("john_doe")
+//         *    → Returns user from database
+//         *
+//         * 2. Compare passwords:
+//         *    Input: "password123" (plain text from user)
+//         *    Stored: "$2a$10$N9qo8uLO..." (BCrypt hash from DB)
+//         *
+//         *    BCrypt process:
+//         *    - Extract salt from stored hash
+//         *    - Hash input with same salt
+//         *    - Compare hashes
+//         *    - Match? → Success! ✅
+//         *    - No match? → Failure! ❌
+//         *
+//         * 3. Return authentication:
+//         *    If passwords match:
+//         *    → Returns Authentication object (authenticated = true)
+//         *
+//         *    If passwords don't match:
+//         *    → Throws BadCredentialsException
+//         *    → Spring catches and returns 401 Unauthorized
+//         *
+//         * Possible Exceptions:
+//         *
+//         * BadCredentialsException:
+//         * - Wrong username or password
+//         * - Spring returns 401 Unauthorized
+//         * - Generic message (don't reveal which was wrong!)
+//         *
+//         * UsernameNotFoundException:
+//         * - User doesn't exist
+//         * - Also returns 401 Unauthorized
+//         * - Same generic message (security!)
+//         *
+//         * DisabledException:
+//         * - Account is disabled
+//         * - Returns 401 Unauthorized
+//         * - Message: "Account disabled"
+//         *
+//         * LockedException:
+//         * - Account is locked
+//         * - Returns 401 Unauthorized
+//         * - Message: "Account locked"
+//         *
+//         * We don't catch these exceptions here:
+//         * - Spring's exception handler manages them
+//         * - Returns proper HTTP status codes
+//         * - Includes error messages in response
+//         */
+//        authenticationManager.authenticate(
+//                new UsernamePasswordAuthenticationToken(
+//                        request.getUsername(),
+//                        request.getPassword()
+//                )
+//        );
+//
+//        /*
+//         * ✅ AUTHENTICATION SUCCESSFUL!
+//         *
+//         * If we reach this line:
+//         * - Username exists in database
+//         * - Password hash matches
+//         * - Account is enabled
+//         * - User is authenticated!
+//         *
+//         * If authentication failed:
+//         * - Exception thrown above
+//         * - This code doesn't execute
+//         * - Spring returns error response
+//         */
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 2: LOAD USER DETAILS
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Get full user information for token generation.
+//         *
+//         * Why load again?
+//         * - Authentication only validates credentials
+//         * - We need UserDetails to generate JWT
+//         * - UserDetails has username for token payload
+//         *
+//         * loadUserByUsername():
+//         * - Queries database
+//         * - Returns UserDetails
+//         * - Same user we just authenticated
+//         *
+//         * Could we skip this?
+//         * - Authentication object contains UserDetails
+//         * - But cleaner to load explicitly
+//         * - More readable code
+//         * - Consistent pattern
+//         */
+//        UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 3: GENERATE JWT TOKEN
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Create access token for authenticated user.
+//         *
+//         * Same process as registration:
+//         * - Extract username from UserDetails
+//         * - Create JWT with claims
+//         * - Sign with secret key
+//         * - Return token string
+//         *
+//         * Token contains:
+//         * - Username
+//         * - Issued timestamp
+//         * - Expiration timestamp
+//         *
+//         * Token is valid for:
+//         * - Configured duration (default 10 hours)
+//         * - User can make authenticated requests
+//         * - After expiration, must login again
+//         */
+//        String token = jwtUtil.generateToken(userDetails);
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 4: GET USER DTO
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * We need UserDTO for response, not UserDetails.
+//         *
+//         * Why?
+//         * - UserDetails has password hash (don't send!)
+//         * - UserDetails is Spring Security format
+//         * - UserDTO is our API format (safe, public)
+//         *
+//         * We fetch from UserService:
+//         * - Queries database by username
+//         * - Converts User entity to UserDTO
+//         * - Returns safe public representation
+//         *
+//         * UserDTO contains:
+//         * - id, username, email, fullName
+//         * - role, enabled status
+//         * - timestamps
+//         * - NO password field!
+//         */
+//        UserDTO user = userService.findByUsername(request.getUsername());
+//
+//        /*
+//         * ═══════════════════════════════════════════════════════════
+//         * STEP 5: RETURN AUTH RESPONSE
+//         * ═══════════════════════════════════════════════════════════
+//         *
+//         * Package and send token + user info.
+//         *
+//         * Frontend receives:
+//         * {
+//         *   "token": "eyJhbGc...",
+//         *   "user": {...}
+//         * }
+//         *
+//         * Frontend will:
+//         * 1. Store token in localStorage
+//         * 2. Store user in state
+//         * 3. Redirect to dashboard
+//         * 4. Start making authenticated requests
+//         *
+//         * HTTP Response:
+//         * Status: 200 OK
+//         * Body: { "token": "...", "user": {...} }
+//         */
+//        return ResponseEntity.ok(new AuthResponse(token, user));
+//
+//        /*
+//         * ✅ LOGIN COMPLETE!
+//         *
+//         * What happened:
+//         * 1. ✅ Validated credentials
+//         * 2. ✅ Authenticated user
+//         * 3. ✅ Generated JWT token
+//         * 4. ✅ Returned token + user info
+//         *
+//         * User can now:
+//         * - Store token
+//         * - Access protected endpoints
+//         * - Make authenticated requests
+//         */
+//    }
+
+    // LOGIN USER (NEW) - WITH REFRESH TOKEN, {ask for verbose later}
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 1: AUTHENTICATE USER
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Verify username and password are correct.
-         *
-         * UsernamePasswordAuthenticationToken:
-         * - Represents authentication request
-         * - Contains username and password
-         * - Initially UNAUTHENTICATED
-         *
-         * Constructor parameters:
-         * 1. principal (username): User identifier
-         * 2. credentials (password): Plain text password
-         *
-         * authenticationManager.authenticate():
-         * - Core Spring Security authentication
-         * - Does the following:
-         *   a. Calls UserDetailsService.loadUserByUsername()
-         *   b. Gets UserDetails from database
-         *   c. Uses PasswordEncoder to compare passwords
-         *   d. BCrypt.matches(input, stored_hash)
-         *   e. If match → Returns authenticated token
-         *   f. If no match → Throws BadCredentialsException
-         *
-         * What happens inside:
-         *
-         * 1. Load user:
-         *    UserDetails user = userDetailsService.loadUserByUsername("john_doe")
-         *    → Returns user from database
-         *
-         * 2. Compare passwords:
-         *    Input: "password123" (plain text from user)
-         *    Stored: "$2a$10$N9qo8uLO..." (BCrypt hash from DB)
-         *
-         *    BCrypt process:
-         *    - Extract salt from stored hash
-         *    - Hash input with same salt
-         *    - Compare hashes
-         *    - Match? → Success! ✅
-         *    - No match? → Failure! ❌
-         *
-         * 3. Return authentication:
-         *    If passwords match:
-         *    → Returns Authentication object (authenticated = true)
-         *
-         *    If passwords don't match:
-         *    → Throws BadCredentialsException
-         *    → Spring catches and returns 401 Unauthorized
-         *
-         * Possible Exceptions:
-         *
-         * BadCredentialsException:
-         * - Wrong username or password
-         * - Spring returns 401 Unauthorized
-         * - Generic message (don't reveal which was wrong!)
-         *
-         * UsernameNotFoundException:
-         * - User doesn't exist
-         * - Also returns 401 Unauthorized
-         * - Same generic message (security!)
-         *
-         * DisabledException:
-         * - Account is disabled
-         * - Returns 401 Unauthorized
-         * - Message: "Account disabled"
-         *
-         * LockedException:
-         * - Account is locked
-         * - Returns 401 Unauthorized
-         * - Message: "Account locked"
-         *
-         * We don't catch these exceptions here:
-         * - Spring's exception handler manages them
-         * - Returns proper HTTP status codes
-         * - Includes error messages in response
-         */
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
@@ -451,135 +618,75 @@ public class AuthController {
                 )
         );
 
-        /*
-         * ✅ AUTHENTICATION SUCCESSFUL!
-         *
-         * If we reach this line:
-         * - Username exists in database
-         * - Password hash matches
-         * - Account is enabled
-         * - User is authenticated!
-         *
-         * If authentication failed:
-         * - Exception thrown above
-         * - This code doesn't execute
-         * - Spring returns error response
-         */
-
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 2: LOAD USER DETAILS
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Get full user information for token generation.
-         *
-         * Why load again?
-         * - Authentication only validates credentials
-         * - We need UserDetails to generate JWT
-         * - UserDetails has username for token payload
-         *
-         * loadUserByUsername():
-         * - Queries database
-         * - Returns UserDetails
-         * - Same user we just authenticated
-         *
-         * Could we skip this?
-         * - Authentication object contains UserDetails
-         * - But cleaner to load explicitly
-         * - More readable code
-         * - Consistent pattern
-         */
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
 
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 3: GENERATE JWT TOKEN
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Create access token for authenticated user.
-         *
-         * Same process as registration:
-         * - Extract username from UserDetails
-         * - Create JWT with claims
-         * - Sign with secret key
-         * - Return token string
-         *
-         * Token contains:
-         * - Username
-         * - Issued timestamp
-         * - Expiration timestamp
-         *
-         * Token is valid for:
-         * - Configured duration (default 10 hours)
-         * - User can make authenticated requests
-         * - After expiration, must login again
-         */
-        String token = jwtUtil.generateToken(userDetails);
+        // Generate access token
+        String accessToken = jwtUtil.generateToken(userDetails);
 
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 4: GET USER DTO
-         * ═══════════════════════════════════════════════════════════
-         *
-         * We need UserDTO for response, not UserDetails.
-         *
-         * Why?
-         * - UserDetails has password hash (don't send!)
-         * - UserDetails is Spring Security format
-         * - UserDTO is our API format (safe, public)
-         *
-         * We fetch from UserService:
-         * - Queries database by username
-         * - Converts User entity to UserDTO
-         * - Returns safe public representation
-         *
-         * UserDTO contains:
-         * - id, username, email, fullName
-         * - role, enabled status
-         * - timestamps
-         * - NO password field!
-         */
+        // Generate refresh token
+        User userEntity = userService.getUserEntityByUsername(request.getUsername());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userEntity);
+
         UserDTO user = userService.findByUsername(request.getUsername());
 
-        /*
-         * ═══════════════════════════════════════════════════════════
-         * STEP 5: RETURN AUTH RESPONSE
-         * ═══════════════════════════════════════════════════════════
-         *
-         * Package and send token + user info.
-         *
-         * Frontend receives:
-         * {
-         *   "token": "eyJhbGc...",
-         *   "user": {...}
-         * }
-         *
-         * Frontend will:
-         * 1. Store token in localStorage
-         * 2. Store user in state
-         * 3. Redirect to dashboard
-         * 4. Start making authenticated requests
-         *
-         * HTTP Response:
-         * Status: 200 OK
-         * Body: { "token": "...", "user": {...} }
-         */
-        return ResponseEntity.ok(new AuthResponse(token, user));
+        return ResponseEntity.ok(new AuthResponse(
+                accessToken,
+                refreshToken.getToken(),
+                user
+        ));
+    }
 
-        /*
-         * ✅ LOGIN COMPLETE!
-         *
-         * What happened:
-         * 1. ✅ Validated credentials
-         * 2. ✅ Authenticated user
-         * 3. ✅ Generated JWT token
-         * 4. ✅ Returned token + user info
-         *
-         * User can now:
-         * - Store token
-         * - Access protected endpoints
-         * - Make authenticated requests
-         */
+    /**
+     * REFRESH TOKEN
+     *
+     * Exchange refresh token for new access token.
+     *
+     * Endpoint: POST /api/auth/refresh
+     *
+     * Request:
+     * {
+     *   "refreshToken": "uuid-string-here"
+     * }
+     *
+     * Response:
+     * {
+     *   "accessToken": "eyJhbGc...",
+     *   "tokenType": "Bearer"
+     * }
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenRefreshResponse> refreshToken(@Valid @RequestBody TokenRefreshRequest request) {
+        String requestRefreshToken = request.getRefreshToken();
+
+        // Verify refresh token
+        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(requestRefreshToken);
+
+        // Get user from refresh token
+        User user = refreshToken.getUser();
+
+        // Generate new access token
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
+        String newAccessToken = jwtUtil.generateToken(userDetails);
+
+        return ResponseEntity.ok(new TokenRefreshResponse(newAccessToken));
+    }
+
+    /**
+     * LOGOUT
+     *
+     * Revoke refresh token.
+     *
+     * Endpoint: POST /api/auth/logout
+     *
+     * Request:
+     * {
+     *   "refreshToken": "uuid-string-here"
+     * }
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@Valid @RequestBody TokenRefreshRequest request) {
+        refreshTokenService.revokeToken(request.getRefreshToken());
+        return ResponseEntity.ok().body("Logged out successfully");
     }
 
     /**

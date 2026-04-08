@@ -17,6 +17,97 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// 🔐 Attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("accessToken");
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+// 🔄 Handle expired access token (AUTO REFRESH)
+api.interceptors.response.use(
+  (response) => response, // If success, just return response
+
+  async (error) => {
+    const originalRequest = error.config;
+
+    /*
+     * ═══════════════════════════════════════════════════════════
+     * CHECK: Is it 401 (Unauthorized) + not already retried?
+     * ═══════════════════════════════════════════════════════════
+     */
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry
+    ) {
+      originalRequest._retry = true;
+
+      try {
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * STEP 1: Get refresh token
+         * ═══════════════════════════════════════════════════════════
+         */
+        const refreshToken = localStorage.getItem("refreshToken");
+
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * STEP 2: Call refresh endpoint
+         * ═══════════════════════════════════════════════════════════
+         */
+        const response = await axios.post(
+          "http://localhost:8080/api/auth/refresh",
+          { refreshToken }
+        );
+
+        const newAccessToken = response.data.accessToken;
+
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * STEP 3: Save new access token
+         * ═══════════════════════════════════════════════════════════
+         */
+        localStorage.setItem("accessToken", newAccessToken);
+
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * STEP 4: Update original request header
+         * ═══════════════════════════════════════════════════════════
+         */
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * STEP 5: Retry original request
+         * ═══════════════════════════════════════════════════════════
+         */
+        return api(originalRequest);
+
+      } catch (refreshError) {
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * REFRESH FAILED → LOGOUT USER
+         * ═══════════════════════════════════════════════════════════
+         */
+        console.error("Refresh token expired or invalid");
+
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+
+        window.location.href = "/login";
+
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // ============================================================================
 // HEALTH CHECK ENDPOINTS (v0.1)
 // ============================================================================

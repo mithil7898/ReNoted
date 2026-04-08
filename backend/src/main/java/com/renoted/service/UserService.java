@@ -561,6 +561,17 @@ public class UserService {
     }
 
     /**
+     * GET USER ENTITY BY USERNAME
+     *
+     * Return User entity (not DTO).
+     * Needed for refresh token creation.
+     */
+    public User getUserEntityByUsername(String username) {
+        return userRepo.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+    }
+
+    /**
      * CONVERT ENTITY TO DTO
      *
      * Helper method to convert User entity to UserDTO

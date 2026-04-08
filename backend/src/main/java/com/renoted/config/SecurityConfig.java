@@ -1,5 +1,7 @@
 package com.renoted.config;
 
+import com.renoted.oauth2.CustomOAuth2UserService;
+import com.renoted.oauth2.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -94,6 +96,8 @@ public class SecurityConfig {
      */
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -340,7 +344,7 @@ public class SecurityConfig {
                  * - Anyone can access
                  * - No token needed
                  */
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
 
                 /*
                  * PROTECTED ENDPOINTS
@@ -438,6 +442,33 @@ public class SecurityConfig {
          * - Authorize access
          * - Protect endpoints
          */
+
+        http
+                .oauth2Login(oauth -> oauth
+                        /*
+                         * ═══════════════════════════════════════════════════════════
+                         * STEP A: CUSTOM USER SERVICE
+                         * ═══════════════════════════════════════════════════════════
+                         *
+                         * After Google authentication:
+                         * - Fetch user details
+                         * - Save/find user in database
+                         */
+                        .userInfoEndpoint(userInfo ->
+                                userInfo.userService(customOAuth2UserService)
+                        )
+
+                        /*
+                         * ═══════════════════════════════════════════════════════════
+                         * STEP B: SUCCESS HANDLER
+                         * ═══════════════════════════════════════════════════════════
+                         *
+                         * After user is processed:
+                         * - Generate JWT + Refresh Token
+                         * - Redirect to frontend
+                         */
+                        .successHandler(oAuth2SuccessHandler)
+                );
         return http.build();
 
         /*

@@ -615,6 +615,62 @@ public class JwtUtil {
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
+
+    /**
+     * GENERATE REFRESH TOKEN (JWT format)
+     *
+     * Alternative to UUID-based refresh tokens.
+     * Creates a JWT refresh token with longer expiration.
+     *
+     * Differences from access token:
+     * - Longer expiration (7 days vs 1 hour)
+     * - Different purpose claim
+     * - Can include device info
+     *
+     * @param userDetails - User to create token for
+     * @return JWT refresh token string
+     */
+    public String generateRefreshToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "refresh");  // Mark as refresh token
+
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userDetails.getUsername())
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + 604800000))  // 7 days
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    /**
+     * VALIDATE REFRESH TOKEN
+     *
+     * Similar to validateToken but for refresh tokens.
+     *
+     * Additional check:
+     * - Verify token type is "refresh"
+     *
+     * @param token - Refresh token to validate
+     * @param userDetails - User details to validate against
+     * @return true if valid refresh token
+     */
+    public Boolean validateRefreshToken(String token, UserDetails userDetails) {
+        try {
+            final String username = extractUsername(token);
+            final Claims claims = extractAllClaims(token);
+
+            // Check if token type is refresh
+            String tokenType = claims.get("type", String.class);
+            if (!"refresh".equals(tokenType)) {
+                return false;
+            }
+
+            return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
 
 /*

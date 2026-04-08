@@ -1,0 +1,34 @@
+# ======================
+# 🔐 Secrets / Env files
+# ======================
+.env
+*.env
+
+# Spring Boot local config
+application-dev.properties
+application-local.properties
+
+# ======================
+# ☕ Java / Spring Boot
+# ======================
+/target/
+*.log
+
+# ======================
+# 🧠 IDE files
+# ======================
+.idea/
+*.iml
+.vscode/
+
+# ======================
+# ⚛️ React / Node
+# ======================
+node_modules/
+build/
+
+# ======================
+# OS files
+# ======================
+.DS_Store
+Thumbs.db
