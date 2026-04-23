@@ -1,7 +1,10 @@
 package com.renoted.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.renoted.dto.ApiResponse;
 import com.renoted.oauth2.CustomOAuth2UserService;
 import com.renoted.oauth2.OAuth2SuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -98,6 +101,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -344,7 +348,7 @@ public class SecurityConfig {
                  * - Anyone can access
                  * - No token needed
                  */
-                .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
+                .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**", "/api/health", "/api/welcome").permitAll()
 
                 /*
                  * PROTECTED ENDPOINTS
@@ -390,6 +394,21 @@ public class SecurityConfig {
                  * - Secure by default!
                  */
                 .anyRequest().authenticated()
+        );
+
+        http.exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    objectMapper.writeValue(response.getOutputStream(), ApiResponse.error("Unauthorized"));
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    objectMapper.writeValue(response.getOutputStream(), ApiResponse.error("Access denied"));
+                })
         );
 
         /*
@@ -442,6 +461,9 @@ public class SecurityConfig {
          * - Authorize access
          * - Protect endpoints
          */
+
+        http.httpBasic(httpBasic -> httpBasic.disable()) // ❗ disable default login popup
+                .formLogin(form -> form.disable());          // ❗ disable HTML login page)
 
         http
                 .oauth2Login(oauth -> oauth

@@ -87,7 +87,12 @@ public class TagService {
      * @return List of all tags
      */
     public List<TagDTO> getAllTags() {
-        List<Tag> tags = tagRepository.findAll();
+//        List<Tag> tags = tagRepository.findAll();
+
+        List<Tag> tags = tagRepository.findAll()
+                .stream()
+                .peek(tag -> tag.getNotes().size()) // 🔥 force initialization safely
+                .collect(Collectors.toList());
 
         // Convert to DTOs and sort by name
         return tags.stream()

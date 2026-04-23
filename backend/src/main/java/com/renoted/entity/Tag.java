@@ -6,6 +6,8 @@ import lombok.*;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * Tag Entity
  *
@@ -85,6 +87,7 @@ public class Tag {
      */
     @ManyToMany(mappedBy = "tags")
     // mappedBy = "tags" refers to the "tags" field in Note entity
+    @JsonIgnore
     private Set<Note> notes = new HashSet<>();
     // Initialize to empty set to avoid NullPointerException
 
